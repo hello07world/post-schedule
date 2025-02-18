@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Post</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .container {
+      max-width: 800px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+      margin-top: 30px;
+    }
+    /* Nav links in a row */
+    .nav-tabs {
+      display: flex;
+      justify-content: space-around;
+    }
+    .nav-tabs .nav-link {
+      text-align: center;
+      padding: 10px 15px;
+    }
+    .nav-tabs .nav-link.active {
+      font-weight: bold;
+      color: #007bff;
+      border-bottom: 2px solid #007bff;
+    }
+    .generated-content {
+      display: none;
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background: #f1f1f1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Back to Home Button -->
+    <div class="mb-3">
+      <a class="btn btn-secondary" href="/">&#60; Back to Home</a>
+    </div>
+
+    <h2 class="mb-3 text-center">Create Post</h2>
+    
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-tabs" id="postTabs">
+      <li class="nav-item">
+        <a class="nav-link active" href="#simplePost" data-bs-toggle="tab">Simple Post</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#postWithImage" data-bs-toggle="tab">Post with Image</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#postWithVideo" data-bs-toggle="tab">Post with Video</a>
+      </li>
+    </ul>
+    
+    <!-- Tab Content -->
+    <div class="tab-content mt-3">
+      <!-- Simple Post Section -->
+      <div class="tab-pane fade show active" id="simplePost">
+        <div class="mb-3">
+          <label for="caption" class="form-label">Caption</label>
+          <textarea id="caption" class="form-control" rows="3" placeholder="Write your caption here..."></textarea>
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="generateCaption()">Generate Caption</button>
+        <div id="captionOutput" class="generated-content"></div>
+      </div>
+      
+      <!-- Post with Image Section -->
+      <div class="tab-pane fade" id="postWithImage">
+        <div class="mb-3">
+          <label for="imageCaption" class="form-label">Caption</label>
+          <input type="text" id="imageCaption" class="form-control" placeholder="Enter caption for image">
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="generateImage()">Generate Image</button>
+        <div id="imageOutput" class="generated-content"></div>
+      </div>
+      
+      <!-- Post with Video Section -->
+      <div class="tab-pane fade" id="postWithVideo">
+        <div class="mb-3">
+          <label for="videoText" class="form-label">Video Text</label>
+          <input type="text" id="videoText" class="form-control" placeholder="Enter text for video overlay">
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="generateVideo()">Generate Video</button>
+        <div id="videoOutput" class="generated-content"></div>
+      </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="mt-4 d-flex justify-content-between">
+      <button type="button" class="btn btn-success" onclick="createPost('published')">Create Post</button>
+      <button type="button" class="btn btn-warning" onclick="createPost('draft')">Save as Draft</button>
+      <button type="button" class="btn btn-primary" onclick="createPost('scheduled')">Schedule</button>
+    </div>
+  </div>
+  
+  <script>
+    // Function to fetch caption from DRF API and update the textarea
+    function generateCaption() {
+      fetch('/api/generate-caption/', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        document.getElementById('caption').value = data.caption;
+        const captionOutput = document.getElementById('captionOutput');
+        captionOutput.style.display = 'block';
+        captionOutput.innerText = "Caption generated successfully!";
+      })
+      .catch(error => console.error('Error generating caption:', error));
+    }
+
+    // Function to fetch image URL from DRF API using caption input
+    function generateImage() {
+      const captionText = document.getElementById('imageCaption').value;
+      fetch('/api/generate-image/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption: captionText })
+      })
+      .then(response => response.json())
+      .then(data => {
+        const imageOutput = document.getElementById('imageOutput');
+        imageOutput.style.display = 'block';
+        imageOutput.innerHTML = `<img src="${data.image_url}" class="img-fluid" alt="Generated Image">`;
+      })
+      .catch(error => console.error('Error generating image:', error));
+    }
+
+    // Function to fetch video URL from DRF API using text input
+    function generateVideo() {
+      const formData = new FormData();
+      const videoText = document.getElementById('videoText').value;
+      if (videoText) formData.append('text', videoText);
+
+      fetch('/api/generate-video/', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        const videoOutput = document.getElementById('videoOutput');
+        videoOutput.style.display = 'block';
+        videoOutput.innerHTML = `
+          <video width="400" controls>
+            <source src="${data.video_url}" type="video/mp4">
+            Your browser does not support the video tag.
+          </video>`;
+      })
+      .catch(error => console.error('Error generating video:', error));
+    }
+
+    // Function to create a post using the data from the active tab and the specified status
+    function createPost(status) {
+      // Determine the active tab based on the active nav-link
+      const activeTab = document.querySelector('#postTabs .nav-link.active').getAttribute('href');
+      let postData = { status: status };
+
+      if (activeTab === '#simplePost') {
+        postData.post_type = "simple";
+        postData.caption = document.getElementById('caption').value;
+      } else if (activeTab === '#postWithImage') {
+        postData.post_type = "image";
+        postData.caption = document.getElementById('imageCaption').value;
+        // Retrieve the generated image URL if available
+        const imgElement = document.querySelector('#imageOutput img');
+        if (imgElement) {
+          postData.image_url = imgElement.getAttribute('src');
+        }
+      } else if (activeTab === '#postWithVideo') {
+        postData.post_type = "video";
+        postData.caption = document.getElementById('videoText').value;
+        // Retrieve the generated video URL if available
+        const videoElement = document.querySelector('#videoOutput video source');
+        if (videoElement) {
+          postData.video_url = videoElement.getAttribute('src');
+        }
+      }
+
+      // If scheduling, prompt user for date and time (in ISO format)
+      if (status === 'scheduled') {
+        let scheduledDate = prompt("Enter scheduled date (YYYY-MM-DD):");
+        let scheduledTime = prompt("Enter scheduled time (HH:MM:SS):");
+        if (scheduledDate && scheduledTime) {
+          postData.scheduled_time = scheduledDate + "T" + scheduledTime + "Z";
+        } else {
+          alert("Scheduled date and time are required for scheduling.");
+          return;
+        }
+      }
+
+      // Send the postData to the create-post API endpoint
+      fetch('/api/create-post/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postData)
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Network response was not OK");
+        }
+        return response.json();
+      })
+      .then(data => {
+        alert("Post created successfully!");
+        // Redirect back to home page
+        window.location.href = "/";
+      })
+      .catch(error => {
+        console.error("Error creating post:", error);
+        alert("Error creating post.");
+      });
+    }
+  </script>
+</body>
+</html>
